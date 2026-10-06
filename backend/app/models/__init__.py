@@ -7,6 +7,7 @@ Importing this package registers every model on ``Base.metadata`` so that
 from app.models.charter import Charter, CharterAcceptance
 from app.models.contribution import ActorType, AgentAction, Contribution
 from app.models.escrow import Escrow, EscrowStatus, Payout, PayoutStatus
+from app.models.ledger import LedgerEntry
 from app.models.milestone import Milestone, MilestoneStatus
 from app.models.project import Confidentiality, MemberStatus, Project, ProjectMember, ProjectStatus
 from app.models.review import Review, ReviewDecision

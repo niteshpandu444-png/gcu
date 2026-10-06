@@ -11,6 +11,7 @@ from app.models.milestone import Milestone, MilestoneStatus
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.contribution import ContributionCreate, ContributionOut
+from app.services.ledger import record_ledger_entry
 
 router = APIRouter(prefix="/api/projects", tags=["contributions"])
 
@@ -69,6 +70,19 @@ def create_contribution(
 
     db.commit()
     db.refresh(contribution)
+
+    if contribution.artifact_id:
+        actor_name = actor.name if actor else ""
+        record_ledger_entry(
+            db,
+            project_id=project.id,
+            action="ARTIFACT_SUBMITTED",
+            actor_id=actor_id,
+            actor_type="AI" if contribution.actor_type == ActorType.AI.value else "HUMAN",
+            actor_name=actor_name,
+            artifact_id=contribution.artifact_id,
+            details=f"{contribution.action}: {contribution.description[:120]}",
+        )
     return ContributionOut.model_validate(contribution)
 
 

@@ -34,6 +34,8 @@ class ProjectOut(BaseModel):
     created_at: datetime
     can_view_confidential_brief: bool = False
     code: str | None = None
+    # "TEAM_FORMED" once the project has >=1 ACTIVE expert and >=2 ACTIVE students.
+    team_state: str = "FORMING"
 
 
 class MemberAdd(BaseModel):
@@ -54,3 +56,4 @@ class MemberOut(BaseModel):
     user_name: str = ""
     user_email: str = ""
     skills: str = ""
+    charter_version: int | None = None

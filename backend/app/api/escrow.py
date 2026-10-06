@@ -22,6 +22,7 @@ from app.schemas.escrow import (
     RewardsOut,
 )
 from app.services.rewards import calculate_reward_shares, reward_split_rules
+from app.services.ledger import record_ledger_entry
 
 router = APIRouter(prefix="/api/projects", tags=["escrow"])
 
@@ -83,6 +84,15 @@ def fund_escrow(
 
     db.commit()
     db.refresh(escrow)
+
+    record_ledger_entry(
+        db,
+        project_id=project.id,
+        action="PAYOUT_CREATED",
+        actor_id=current_user.id,
+        actor_name=current_user.name,
+        details=f"Escrow funded with {amount} for milestone '{milestone.title}' — transparent payout splits created",
+    )
     return EscrowOut.model_validate(escrow)
 
 
@@ -129,6 +139,19 @@ def release_escrow(
 
     db.commit()
     db.refresh(escrow)
+
+    released = db.scalars(select(Payout).where(Payout.milestone_id == milestone.id)).all()
+    record_ledger_entry(
+        db,
+        project_id=project.id,
+        action="ESCROW_RELEASED",
+        actor_id=current_user.id,
+        actor_name=current_user.name,
+        details=(
+            f"Escrow released for milestone '{milestone.title}' — "
+            f"{len(released)} payouts (AI share 0)"
+        ),
+    )
     return EscrowOut.model_validate(escrow)
 
 

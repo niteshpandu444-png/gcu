@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import models  # noqa: F401  (registers all tables on Base.metadata)
-from app.api import agent_actions, auth, charter, contributions, escrow, members, milestones, projects, reviews
+from app.api import agent_actions, auth, charter, contributions, escrow, ledger, members, milestones, projects, reviews
 from app.config import get_settings
 from app.api import ai
 from app.database import Base, engine, ensure_columns
@@ -51,6 +51,7 @@ app.include_router(agent_actions.router)
 app.include_router(reviews.router)
 app.include_router(escrow.router)
 app.include_router(ai.router)
+app.include_router(ledger.router)
 
 
 @app.get("/health", tags=["health"])

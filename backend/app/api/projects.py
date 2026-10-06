@@ -9,7 +9,8 @@ from app.deps import get_current_user, get_project, require_roles
 from app.models.project import MemberStatus, Project, ProjectMember
 from app.models.user import Role, User
 from app.schemas.project import ProjectCreate, ProjectOut
-from app.services.policy import can_access_confidential_brief
+from app.services.ledger import record_ledger_entry
+from app.services.policy import can_access_confidential_brief, team_state
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -25,8 +26,8 @@ def _active_member_project_ids(db: Session, user: User) -> set[int]:
     return set(rows)
 
 
-def _to_out(project: Project, user: User, is_member: bool) -> ProjectOut:
-    allowed = can_access_confidential_brief(user, project, is_member=is_member)
+def _to_out(db: Session, project: Project, user: User, is_member: bool) -> ProjectOut:
+    allowed = can_access_confidential_brief(db, user, project, is_member=is_member)
     return ProjectOut(
         id=project.id,
         sponsor_id=project.sponsor_id,
@@ -39,6 +40,7 @@ def _to_out(project: Project, user: User, is_member: bool) -> ProjectOut:
         created_at=project.created_at,
         can_view_confidential_brief=allowed,
         code=project.code,
+        team_state=team_state(db, project.id),
     )
 
 
@@ -61,7 +63,16 @@ def create_project(
     db.add(project)
     db.commit()
     db.refresh(project)
-    return _to_out(project, current_user, is_member=True)
+    record_ledger_entry(
+        db,
+        project_id=project.id,
+        action="PROJECT_CREATED",
+        actor_id=current_user.id,
+        actor_type="HUMAN",
+        actor_name=current_user.name,
+        details=f"Project '{project.title}' created by sponsor",
+    )
+    return _to_out(db, project, current_user, is_member=True)
 
 
 @router.get("", response_model=list[ProjectOut])
@@ -72,7 +83,7 @@ def list_projects(
     """List projects (public information only unless the policy allows the brief)."""
     projects = db.scalars(select(Project).order_by(Project.id.desc())).all()
     member_ids = _active_member_project_ids(db, current_user)
-    return [_to_out(p, current_user, is_member=p.id in member_ids) for p in projects]
+    return [_to_out(db, p, current_user, is_member=p.id in member_ids) for p in projects]
 
 
 @router.get("/{project_id}", response_model=ProjectOut)
@@ -84,4 +95,4 @@ def get_project_detail(
     """Project detail. The confidential brief is only included when
     ``can_access_confidential_brief`` allows it."""
     is_member = project.id in _active_member_project_ids(db, current_user)
-    return _to_out(project, current_user, is_member=is_member)
+    return _to_out(db, project, current_user, is_member=is_member)

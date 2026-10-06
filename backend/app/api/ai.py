@@ -15,12 +15,18 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.contribution import ActorType, AgentAction, Contribution
+from app.models.charter import Charter
 from app.models.project import Project
 from app.models.user import User
-from app.schemas.ai import ResearchRequest, ResearchResponse, ScopeRequest, ScopeResponse
+from pydantic import BaseModel
+from app.schemas.ai import ResearchRequest, ResearchResponse, ScopeMilestone, ScopeRequest, ScopeResponse
+from app.schemas.charter import CharterOut
 from app.services.ai import agent as research_agent
+from app.services.ai import charter_gen
 from app.services.ai import scoping
-from app.services.policy import can_use_project_agent, is_active_member
+from app.services import matching
+from app.services.ledger import record_ledger_entry
+from app.services.policy import can_use_project_agent, is_active_member, latest_charter
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -130,6 +136,15 @@ def _log_ai_action(
         )
     )
     db.commit()
+    record_ledger_entry(
+        db,
+        project_id=project.id,
+        action=action,
+        actor_id=owner.id,
+        actor_type="AI",
+        actor_name=owner.name,
+        details=contribution_description,
+    )
 
 
 @router.post("/scope", response_model=ScopeResponse)
@@ -197,3 +212,132 @@ def research(
         sources=sources,
         source=source,
     )
+
+
+class MatchRequest(BaseModel):
+    project_id: int | str
+
+
+class CharterGenerateRequest(BaseModel):
+    project_id: int | str
+    problem: str = ""  # defaults to the project's own title + summary
+
+
+class CharterGenerateResponse(BaseModel):
+    project_id: int | str
+    source: str  # 'llm' | 'fallback'
+    charter: CharterOut
+    required_skills: list[str]
+    milestones: list[ScopeMilestone]
+
+
+@router.post("/charter", response_model=CharterGenerateResponse)
+def generate_charter(
+    payload: CharterGenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> CharterGenerateResponse:
+    """AI generates a draft charter (AI_CHARTER_GENERATION).
+
+    Sponsor/ADMIN only. Persists a DRAFT charter version the sponsor can then
+    review and APPROVE — AI never approves its own charter. Deterministic
+    fallback without an LLM API key.
+    """
+    project = _resolve_project(db, payload.project_id)
+    _authorize_project(db, current_user, project)
+    if current_user.role not in ("ADMIN",) and project.sponsor_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the project sponsor can generate the charter",
+        )
+
+    problem = payload.problem.strip() or f"{project.title}. {project.public_summary}"
+    result = charter_gen.generate_charter(project.title, problem)
+    sections = result["sections"]
+
+    latest = latest_charter(db, project.id)
+    if latest is None:
+        charter = Charter(project_id=project.id, version=1, status="DRAFT", **sections)
+        db.add(charter)
+    elif latest.status == "DRAFT":
+        charter = latest
+        for key, value in sections.items():
+            setattr(charter, key, value)
+    else:  # APPROVED -> superseding version must be re-approved by a human
+        charter = Charter(project_id=project.id, version=latest.version + 1, status="DRAFT", **sections)
+        db.add(charter)
+    db.commit()
+    db.refresh(charter)
+
+    _log_ai_action(
+        db,
+        project=project,
+        user=current_user,
+        owner=current_user,
+        agent_id="CHARTER-AGENT-001",
+        action="AI_CHARTER_GENERATION",
+        input_summary=f"Draft charter for: {problem[:180]}",
+        output_summary=f"Charter v{charter.version} DRAFT ({result['source']}), {len(result['required_skills'])} skills",
+        contribution_description=(
+            f"AI generated charter v{charter.version} ({result['source']}) — pending sponsor approval"
+        ),
+    )
+
+    return CharterGenerateResponse(
+        project_id=payload.project_id,
+        source=result["source"],
+        charter=CharterOut.model_validate(charter),
+        required_skills=result["required_skills"],
+        milestones=result["milestones"],
+    )
+
+
+def _require_approved_charter(db: Session, project: Project) -> None:
+    charter = latest_charter(db, project.id)
+    if charter is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="No charter yet — generate the AI charter first",
+        )
+    if charter.status != "APPROVED":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Charter must be approved by the sponsor before candidate matching",
+        )
+
+
+@router.post("/match")
+def match(
+    payload: MatchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Explainable AI candidate matching (AI_TEAM_MATCHING).
+
+    Hard filters (role, verification, conflict of interest) + a transparent
+    skill-overlap score. Requires an APPROVED charter; logs the action with a
+    human owner — recommendations never become memberships by themselves.
+    """
+    project = _resolve_project(db, payload.project_id)
+    _authorize_project(db, current_user, project)
+    _require_approved_charter(db, project)
+
+    result = matching.match_candidates(db, project)
+
+    _log_ai_action(
+        db,
+        project=project,
+        user=current_user,
+        owner=current_user,
+        agent_id="MATCHING-AGENT-001",
+        action="AI_TEAM_MATCHING",
+        input_summary=f"Skills required: {', '.join(result['required_skills'])}",
+        output_summary=(
+            f"Expert: {(result.get('recommended_expert') or {}).get('name', 'none')} + "
+            f"{len(result.get('recommended_students', []))} students"
+        ),
+        contribution_description="AI recommended verified candidates with explainable match scores",
+    )
+    result["source"] = "deterministic"
+    return result
+

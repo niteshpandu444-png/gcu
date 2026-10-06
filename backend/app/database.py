@@ -41,9 +41,25 @@ def ensure_columns() -> None:
     but are missing from an already-created SQLite database (no Alembic).
     """
     inspector = inspect(engine)
-    if "projects" not in inspector.get_table_names():
-        return
-    existing = {column["name"] for column in inspector.get_columns("projects")}
-    with engine.begin() as connection:
-        if "code" not in existing:
-            connection.execute(text("ALTER TABLE projects ADD COLUMN code VARCHAR(50)"))
+    tables = inspector.get_table_names()
+    if "projects" in tables:
+        existing_proj = {column["name"] for column in inspector.get_columns("projects")}
+        with engine.begin() as connection:
+            if "code" not in existing_proj:
+                connection.execute(text("ALTER TABLE projects ADD COLUMN code VARCHAR(50)"))
+    if "charters" in tables:
+        existing_charter = {column["name"] for column in inspector.get_columns("charters")}
+        with engine.begin() as connection:
+            if "status" not in existing_charter:
+                connection.execute(text("ALTER TABLE charters ADD COLUMN status VARCHAR(20) DEFAULT 'DRAFT'"))
+            if "approved_by" not in existing_charter:
+                connection.execute(text("ALTER TABLE charters ADD COLUMN approved_by INTEGER"))
+            if "approved_at" not in existing_charter:
+                connection.execute(text("ALTER TABLE charters ADD COLUMN approved_at DATETIME"))
+            if "dispute_rules" not in existing_charter:
+                connection.execute(text("ALTER TABLE charters ADD COLUMN dispute_rules TEXT DEFAULT ''"))
+    if "project_members" in tables:
+        existing_member = {column["name"] for column in inspector.get_columns("project_members")}
+        with engine.begin() as connection:
+            if "charter_version" not in existing_member:
+                connection.execute(text("ALTER TABLE project_members ADD COLUMN charter_version INTEGER"))

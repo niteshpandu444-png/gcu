@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base, utcnow
@@ -15,11 +15,15 @@ class Charter(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     version: Mapped[int] = mapped_column(default=1)
+    status: Mapped[str] = mapped_column(String(20), default="DRAFT")
+    approved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     scope: Mapped[str] = mapped_column(Text, default="")
     access_rules: Mapped[str] = mapped_column(Text, default="")
     ip_rules: Mapped[str] = mapped_column(Text, default="")
     ai_rules: Mapped[str] = mapped_column(Text, default="")
     reward_rules: Mapped[str] = mapped_column(Text, default="")
+    dispute_rules: Mapped[str] = mapped_column(Text, default="")
     confidentiality_rules: Mapped[str] = mapped_column(Text, default="")
     commercialisation_rules: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

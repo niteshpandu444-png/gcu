@@ -11,6 +11,7 @@ from app.models.project import Project
 from app.models.review import Review, ReviewDecision
 from app.models.user import Role, User
 from app.schemas.review import ReviewCreate, ReviewOut
+from app.services.ledger import record_ledger_entry
 
 router = APIRouter(prefix="/api/projects", tags=["reviews"])
 
@@ -44,6 +45,16 @@ def create_review(
     milestone.status = _DECISION_TO_MILESTONE_STATUS[payload.decision.value]
     db.commit()
     db.refresh(review)
+
+    if review.decision == ReviewDecision.APPROVED.value:
+        record_ledger_entry(
+            db,
+            project_id=project.id,
+            action="REVIEW_APPROVED",
+            actor_id=current_user.id,
+            actor_name=current_user.name,
+            details=f"Milestone '{milestone.title}' approved by reviewer: {review.comment[:120]}",
+        )
     return ReviewOut.model_validate(review)
 
 

@@ -25,6 +25,7 @@ class Confidentiality(str, Enum):
 class MemberStatus(str, Enum):
     INVITED = "INVITED"
     ACTIVE = "ACTIVE"
+    REJECTED = "REJECTED"
     LEFT = "LEFT"
     REVOKED = "REVOKED"
 
@@ -58,6 +59,8 @@ class ProjectMember(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     role: Mapped[str] = mapped_column(String(20), default="MEMBER")
     status: Mapped[str] = mapped_column(String(20), default=MemberStatus.ACTIVE.value)
+    # Charter version accepted by this member at (or before) activation.
+    charter_version: Mapped[int | None] = mapped_column(nullable=True, default=None)
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     def __repr__(self) -> str:

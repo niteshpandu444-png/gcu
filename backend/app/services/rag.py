@@ -87,6 +87,74 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+def _pdf_page0_may_start_front_matter(path: Path) -> bool:
+    """Cheap gate: could this PDF's raw text start with front matter?
+
+    ``_FRONT_MATTER_RE`` is ``\A``-anchored and the raw text is
+    ``"\\n".join(pages)``, so a match is only possible when page 0 starts
+    with ``---``. Large reference PDFs (R1–R9) without front matter are
+    therefore skipped after extracting a single page instead of the whole
+    document, which keeps AI research calls fast. Returns False on unreadable
+    files (same as the old "skip unreadable files" behaviour).
+    """
+    try:
+        from pypdf import PdfReader
+
+        reader = PdfReader(str(path))
+        if not reader.pages:
+            return False
+        page0 = reader.pages[0].extract_text() or ""
+    except Exception:  # noqa: BLE001 — never fail a request on one file
+        return False
+    return page0.startswith("---")
+
+
+# Per-file parse cache: path -> (mtime_ns, size, documents). Files in the
+# knowledge base are read-only during a run, so re-parsing on every request
+# (which made cold research calls take 20-30s while R1-R9 PDFs were
+# extracted) is pure waste. mtime/size invalidation keeps edits safe.
+_FILE_CACHE: dict[str, tuple[int, int, list[Document]]] = {}
+
+
+def _load_file_documents(path: Path) -> list[Document]:
+    """Parse one knowledge file into documents (cached by mtime + size)."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return []
+    key = (stat.st_mtime_ns, stat.st_size)
+    cached = _FILE_CACHE.get(str(path))
+    if cached is not None and (cached[0], cached[1]) == key:
+        return cached[2]
+
+    documents: list[Document] = []
+    try:
+        if path.suffix.lower() == ".pdf" and not _pdf_page0_may_start_front_matter(path):
+            raw = None  # no front matter possible at raw start -> skip
+        else:
+            raw = _read_text(path)
+    except Exception:  # noqa: BLE001 — skip unreadable files, never fail the request
+        raw = None
+
+    if raw is not None:
+        metadata, body = _parse_front_matter(raw, fallback_id=path.stem)
+        if metadata.get("project_id"):
+            documents = [
+                Document(
+                    document_id=metadata.get("document_id", path.stem),
+                    project_id=metadata.get("project_id", ""),
+                    sensitivity=metadata.get("sensitivity", "INTERNAL"),
+                    # Honour the front-matter source label when present (fall back
+                    # to the filename for older documents without one).
+                    source=metadata.get("source") or path.name,
+                    text=body.strip(),
+                )
+            ]
+
+    _FILE_CACHE[str(path)] = (key[0], key[1], documents)
+    return documents
+
+
 def load_documents(project_ref: set[str]) -> list[Document]:
     """Load knowledge documents whose ``project_id`` matches ``project_ref``.
 
@@ -102,25 +170,11 @@ def load_documents(project_ref: set[str]) -> list[Document]:
     for path in sorted(KNOWLEDGE_DIR.iterdir()):
         if path.suffix.lower() not in SUPPORTED_SUFFIXES:
             continue
-        try:
-            raw = _read_text(path)
-        except Exception:
-            continue  # skip unreadable files, never fail the request
-        metadata, body = _parse_front_matter(raw, fallback_id=path.stem)
-        doc_project = metadata.get("project_id", "").lower()
-        if not doc_project or doc_project not in accepted:
-            continue  # project isolation: skip other projects' documents
-        documents.append(
-            Document(
-                document_id=metadata.get("document_id", path.stem),
-                project_id=metadata.get("project_id", ""),
-                sensitivity=metadata.get("sensitivity", "INTERNAL"),
-                # Honour the front-matter source label when present (fall back
-                # to the filename for older documents without one).
-                source=metadata.get("source") or path.name,
-                text=body.strip(),
-            )
-        )
+        for doc in _load_file_documents(path):
+            # project isolation: skip other projects' documents
+            if doc.project_id.strip().lower() not in accepted:
+                continue
+            documents.append(doc)
     return documents
 
 

@@ -11,6 +11,7 @@ class CharterCreate(BaseModel):
     ip_rules: str = ""
     ai_rules: str = ""
     reward_rules: str = ""
+    dispute_rules: str = ""
     confidentiality_rules: str = ""
     commercialisation_rules: str = ""
 
@@ -21,11 +22,15 @@ class CharterOut(BaseModel):
     id: int
     project_id: int
     version: int
+    status: str = "DRAFT"
+    approved_by: int | None = None
+    approved_at: datetime | None = None
     scope: str
     access_rules: str
     ip_rules: str
     ai_rules: str
     reward_rules: str
+    dispute_rules: str = ""
     confidentiality_rules: str
     commercialisation_rules: str
     created_at: datetime
