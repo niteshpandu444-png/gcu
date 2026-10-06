@@ -1,8 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --background: #070a12;
+  --foreground: #e4e4e7;
+
+  /* surfaces */
+  --panel: rgba(255, 255, 255, 0.032);
+  --panel-strong: rgba(255, 255, 255, 0.055);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* accents */
+  --accent: #6366f1;
+  --accent-soft: rgba(99, 102, 241, 0.16);
+  --violet: #8b5cf6;
+  --cyan: #22d3ee;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
 }
 
 @theme inline {
@@ -12,15 +28,117 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- ambient background glow ---------- */
+.bg-ambient {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(720px 420px at 12% -8%, rgba(99, 102, 241, 0.16), transparent 62%),
+    radial-gradient(640px 400px at 88% 4%, rgba(139, 92, 246, 0.12), transparent 60%),
+    radial-gradient(760px 520px at 60% 108%, rgba(34, 211, 238, 0.08), transparent 65%);
+}
+
+/* ---------- glass panel ---------- */
+.panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.8);
+}
+
+.panel-strong {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--panel-border-strong);
+}
+
+.panel-hover {
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+.panel-hover:hover {
+  border-color: rgba(129, 140, 248, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 24px 48px -28px rgba(79, 70, 229, 0.55);
+}
+
+/* ---------- typography helpers ---------- */
+.text-gradient {
+  background: linear-gradient(92deg, #c7d2fe 0%, #a5b4fc 34%, #67e8f9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hairline {
+  border-top: 1px solid var(--panel-border);
+}
+
+/* ---------- chips & dots ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: #d4d4d8;
+}
+
+.dot-live {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--success);
+  box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55);
+  animation: pulse-live 2s ease-out infinite;
+}
+
+@keyframes pulse-live {
+  0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+  70% { box-shadow: 0 0 0 7px rgba(52, 211, 153, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+}
+
+/* ---------- subtle entrance animation ---------- */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.rise {
+  animation: rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise, .dot-live { animation: none !important; }
+  .panel-hover:hover { transform: none; }
+}
+
+/* ---------- scrollbars ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-track { background: transparent; }
+
+::selection {
+  background: rgba(99, 102, 241, 0.4);
+  color: #fff;
 }
