@@ -35,6 +35,9 @@ class Project(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     sponsor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     title: Mapped[str] = mapped_column(String(255))
+    # Optional human-friendly project code (e.g. "GCU-DEMO-001") used by the
+    # AI endpoints; NULL for projects that were created without one.
+    code: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
     public_summary: Mapped[str] = mapped_column(Text, default="")
     confidential_brief: Mapped[str] = mapped_column(Text, default="")
     funding: Mapped[int] = mapped_column(default=0)

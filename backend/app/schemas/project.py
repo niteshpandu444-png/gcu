@@ -14,6 +14,7 @@ class ProjectCreate(BaseModel):
     confidential_brief: str = ""
     funding: int = Field(default=0, ge=0)
     confidentiality: Confidentiality = Confidentiality.INTERNAL
+    code: str | None = Field(default=None, max_length=50, description="Optional project code, e.g. GCU-DEMO-001")
 
 
 class ProjectOut(BaseModel):
@@ -32,6 +33,7 @@ class ProjectOut(BaseModel):
     status: ProjectStatus
     created_at: datetime
     can_view_confidential_brief: bool = False
+    code: str | None = None
 
 
 class MemberAdd(BaseModel):

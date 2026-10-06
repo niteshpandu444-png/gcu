@@ -16,7 +16,7 @@ The script is idempotent: re-running it does not duplicate data.
 from sqlalchemy import select
 
 from app import models  # noqa: F401
-from app.database import Base, SessionLocal, engine
+from app.database import Base, SessionLocal, ensure_columns, engine
 from app.models import (
     Confidentiality,
     MemberStatus,
@@ -46,6 +46,7 @@ DEMO_USERS: list[dict[str, str]] = [
 ]
 
 DEMO_PROJECT = {
+    "code": "GCU-DEMO-001",
     "title": "Low-cost detection of diabetic retinopathy from fundus images on edge devices",
     "public_summary": "Develop a low-cost edge-compatible system for diabetic retinopathy screening.",
     "confidential_brief": "Detailed sponsor research requirements and internal methodology.",
@@ -82,6 +83,7 @@ DEMO_MEMBERSHIP: list[tuple[str, str]] = [
 
 def seed() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_columns()
     db = SessionLocal()
     try:
         users: dict[str, User] = {}
@@ -134,6 +136,10 @@ def seed() -> None:
             print(f"Created {len(DEMO_MEMBERSHIP)} project memberships")
         else:
             print(f"Demo project already exists (#{project.id})")
+            if project.code is None:
+                project.code = "GCU-DEMO-001"
+                db.add(project)
+                print("Backfilled project code GCU-DEMO-001")
 
         db.commit()
 

@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24
     cors_origins: str = "*"
 
+    # OpenAI-compatible LLM integration. Empty api key => deterministic fallback.
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_model: str = "gpt-4o-mini"
+    llm_timeout_seconds: float = 15.0
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

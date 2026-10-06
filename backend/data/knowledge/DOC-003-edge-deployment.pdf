@@ -1,0 +1,50 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 678 >>
+stream
+BT
+/F1 10 Tf
+12 TL
+40 760 Td
+(---) Tj T*
+(document_id: DOC-003) Tj T*
+(project_id: GCU-DEMO-001) Tj T*
+(sensitivity: INTERNAL) Tj T*
+(source: synthetic_demo_reference) Tj T*
+(---) Tj T*
+() Tj T*
+(# Edge Deployment Checklist) Tj T*
+() Tj T*
+(Package the quantised diabetic retinopathy model with TFLite or ONNX Runtime.) Tj T*
+(Verify input resolution, colour normalization and float-to-int8 ranges match training.) Tj T*
+(Measure cold-start time, peak RAM and per-image latency on the target device.) Tj T*
+(Record battery draw per inference for battery-powered screening units.) Tj T*
+(Sign off only when accuracy after quantization stays within the agreed tolerance.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000970 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1040
+%%EOF

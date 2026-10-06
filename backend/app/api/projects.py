@@ -38,6 +38,7 @@ def _to_out(project: Project, user: User, is_member: bool) -> ProjectOut:
         status=project.status,
         created_at=project.created_at,
         can_view_confidential_brief=allowed,
+        code=project.code,
     )
 
 
@@ -55,6 +56,7 @@ def create_project(
         confidential_brief=payload.confidential_brief,
         funding=payload.funding,
         confidentiality=payload.confidentiality.value,
+        code=payload.code,
     )
     db.add(project)
     db.commit()
